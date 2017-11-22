@@ -26,7 +26,7 @@ extend <- function(value) {
 }
 
 multiplicative_Method <- function(m, k, n) {
-  value <- sample(1:99999999, 1)
+  value <- sample(1:9999, 1)
   values <- vector()
   for (i in 1: n) {
     value <- (k * value) %% m
@@ -35,27 +35,68 @@ multiplicative_Method <- function(m, k, n) {
   return(values)
 }
 
-test <- function(values) {
-  print(values)
-  n = length(values)
-  ifelse( n <= 100, hist(values, breaks = sqrt(n)), hist(values, breaks = 2*log(n)))
-  hist(values, breaks = sqrt(n))
-  mo = sum(values) / n
-  disp = var(values) * (n-1) / n
-  x = values[1:n/2]
-  y = values[n/2:n]
-  print(paste("MO: ", mo))
-  print(paste("DISP: ", disp))
-  print(paste("Correlation: ", cor(x, y)))
+alpha = 0.01
+
+findEvInterval <- function(varience, ev, n) {
+  t = sqrt(varience) * 2.7850 / sqrt(n - 1) #значение из таблицы стьюдента
+  leftE = ev - t
+  rightE = ev + t
+  print(paste(leftE, "<= E <", rightE))
 }
 
-n = 100000
-result = middle_Squere_Method(n)
-print(result)
-test(result)
+findVarInterval <- function(varience, n) {
+  leftV = (n - 1) * varience / qchisq((1 + alpha) / 2, n - 1)
+  rightV = (n - 1) * varience / qchisq((1 - alpha) / 2, n - 1)
+  print(paste(leftV, "<= V <", rightV))
+}
 
-m = 8954325732
-k = 4532
-result = multiplicative_Method(m, k = k, n = n) / m
-#print(result)
-#test(result)
+inverseNormal <- function(x) { # апроксимированная обратная функция нормального распределния
+  t = sqrt(-2 * log(1 - x))
+  return(t - (2.30753 + 0.2706 * t) / (1 + 0.99229 * t + 0.04481 * t ^ 2))
+}
+
+testing <- function(nums, name) {
+  n = length(nums)
+  ifelse( n <= 100, hist(nums, probability = FALSE, breaks = sqrt(n), main = paste("Histogram for", name, " ")), hist(nums, probability = FALSE, breaks = 2*log(n), main = paste("Histogram for", name, " ")))
+  ev = sum(nums) / n
+  varience = var(nums)
+  print(name)
+  findEvInterval(varience, ev, length(nums))
+  findVarInterval(varience, length(nums))
+  print(paste("E: ", ev))
+  print(paste("V: ", varience))
+}
+
+n = 100
+m = 102348091
+k = 12526
+numsFromMultiplicativeMethod = multiplicative_Method(m, k = k, n = n) / m
+y_nums = mapply(inverseNormal, numsFromMultiplicativeMethod)
+
+y_count = length(y_nums)
+ranges_table = table(cut(y_nums, breaks = sqrt(y_count), ordered_result = TRUE))
+#print(ranges_table)
+tableNames = names(ranges_table)
+#print(tableNames)
+
+i = 1
+totalProb = 0
+chiSqr = 0
+for (normCount in myNormByCount) { #
+  name = tableNames[i]
+  substringName = substring(tableNames[i], 2, nchar(name) - 1)
+  splitted = strsplit(substringName, ",")
+  left = as.double(unlist(splitted)[[1]])
+  right = as.double(unlist(splitted)[[2]])
+  probabilityInStandardNorm = pnorm(right) - pnorm(left)
+  totalProb = totalProb + probabilityInStandardNorm 
+  nextChi = (probabilityInStandardNorm - normCount / n) ^ 2 / probabilityInStandardNorm
+  chiSqr = chiSqr + nextChi
+  i = i + 1
+}
+
+print(paste("Chi squere: ", n * chiSqr))
+print(paste("Total probability: ", totalProb))
+
+testing(a, "normal from uniform")
+#testing(rnorm(n), "normal")
