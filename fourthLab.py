@@ -2,12 +2,10 @@ from numpy import random as rnd
 import json
 
 
-#state identifiers
 state_free = 0
 state_busy = 1
 state_locked = 2
 
-#statistic data
 out_requests = list()
 average_time_in_system = [0.0, 0]
 average_interval = [0.0, 0]
@@ -78,19 +76,18 @@ def exponential_d(lmbda):
 
 
 if __name__ == '__main__':
-    #system initial structure
     with open('input.json') as f_r:
         initial_structure = json.load(f_r)
     channel_counts = initial_structure[0]
-    store_sizes = initial_structure[0]
+    store_sizes = initial_structure[1]
     channel_distributions = [exponential_d(2.5), uniform_d(3.0, 9.0), exponential_d(2.0)]
     
     channels = [[Channel(channel_distributions[i]) for j in range(channel_counts[i])] for i in range(len(channel_counts))]
     stores = [Store(store_sizes[i]) for i in range(len(channel_counts))]
     phases = [Phase(channels[i], stores[i]) for i in range(len(channel_counts))]
 
-    # modeling initial variables
-    requests_count, current_count = 1000, 0
+    requests_count = 1000
+    current_count = 0
     rejected_requests, resolved_requests = list(), list()
     request_gen = exponential_d(1.0)
     system_time = 0.0
@@ -102,10 +99,10 @@ if __name__ == '__main__':
     fp = open("stat_logger.txt", "w", encoding="utf-8")
     now_count = requests_count - current_count
     while current_count < requests_count:
-        # check if we already can free some channels in last phase
         for channel in phases[n].channels:
             if channel.end_time <= system_time and channel.state == state_busy:
                 channel.release_request()
+                #заявка прошла
                 out_requests.append(channel.request)
                 average_time_in_system[0] += (channel.request.out_time - channel.request.in_time)
                 average_time_in_system[1] += 1
@@ -115,7 +112,6 @@ if __name__ == '__main__':
 
                 average_interval[1] += 1
 
-        # if we have some requests in store then process them
         while any(channel.state == state_free for channel in phases[n].channels):
             if len(phases[n].store.requests) > 0:
                 request = phases[n].store.requests[0]
@@ -128,7 +124,6 @@ if __name__ == '__main__':
             else:
                 break
 
-        # then lets go from last to first and try to send requests to next phase
         for i in reversed(range(len(phases) - 1)):
             can_go_next = any(channel.state == state_free for channel in phases[i + 1].channels)
             can_go_next &= (i + 1 != n) and len(phases[i + 1].store.requests) < phases[i + 1].store.max_size
@@ -183,7 +178,6 @@ if __name__ == '__main__':
                 else:
                     break
         
-        # try to add request to last phase, it is separated block, because last phase doesnt have store
         for chanel in phases[n - 1].channels:
             if chanel.state == state_locked and any(chanel.state == state_free for chanel in phases[n].channels):
                 for last_phase_chanel in phases[n].channels:
@@ -195,7 +189,6 @@ if __name__ == '__main__':
             request = Request(request_time)
 
             current_count += 1
-                    # count statictic per system-time-step
             for phase in phases:
                 phase.store.count_statistic()
                 for channel in phase.channels:
@@ -209,6 +202,7 @@ if __name__ == '__main__':
             elif len(phases[0].store.requests) < phases[0].store.max_size:
                 phases[0].store.requests.append(request)
 
+            #заявка отвергнута
             request_interval = next(request_gen)
             request_time += max(request_interval, 0.1)
 
@@ -227,11 +221,10 @@ if __name__ == '__main__':
                 for j in range(len(phases[i].channels)):
                     fp.writelines("\tChannel " + str(j+1) + " state : " + str(phases[i].channels[j].state) + "\n")
             fp.writelines("====================================\n")
-            
-
-    fp.writelines("====================================\n")
-    fp.writelines('\nRequests count: ' + str(requests_count) + "\n")
+    
     fp.writelines('Rejection probability: ' + str(1 - len(out_requests) / requests_count) + "\n")
+    fp.writelines('Average interval between successive requests: ' + str(average_interval[0] / average_interval[1]) + "\n")
+    fp.writelines('Average time in system: ' + str(average_time_in_system[0] / average_time_in_system[1]) + "\n")
     fp.writelines('Statistic for each phase\n')
     for i in range(len(phases)):
         fp.writelines('\t' + str(i + 1) + ' Phase statistic:\n')
