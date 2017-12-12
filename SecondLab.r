@@ -91,7 +91,7 @@ for (normCount in myNormByCount) {
 }
 
 print(paste("Chi squere: ", n * chiSqr))
-print(paste("Chi table", qchisq(.99, 2*log(length(a) - 1 - 2))))
+print(paste("Chi table", qchisq(.99, 23)))
 print(paste("Total probability: ", totalProb))
 
 testing(a, "My normal")
